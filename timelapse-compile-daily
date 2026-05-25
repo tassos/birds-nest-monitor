@@ -1,0 +1,13 @@
+#!/bin/bash
+
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/timelapse/config"
+[[ -f "$CONFIG" ]] && source "$CONFIG"
+
+FRAMES_DIR="${FRAMES_DIR:-$HOME/birdsnest-timelapse/frames}"
+
+date="$(date -d yesterday +%Y%m%d)"
+
+if @BINDIR@/timelapse-compile --date "$date"; then
+    find "$FRAMES_DIR" -maxdepth 1 -name "frame_${date}*.jpg" -delete
+    echo "Removed source frames for $date"
+fi

@@ -1,0 +1,103 @@
+#!/bin/bash
+
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/timelapse/config"
+[[ -f "$CONFIG" ]] && source "$CONFIG"
+
+STREAM_URL="${STREAM_URL:-YOUR_STREAM_URL}"
+FRAMES_DIR="${FRAMES_DIR:-$HOME/Video/birdsnest-timelapse/frames}"
+INTERVAL_MOTION="${INTERVAL_MOTION:-${INTERVAL:-5}}"
+INTERVAL_STATIC="${INTERVAL_STATIC:-60}"
+RAMP_DURATION="${RAMP_DURATION:-300}"
+MOTION_THRESHOLD="${MOTION_THRESHOLD:-0.02}"
+ACTIVE_START="${ACTIVE_START:-06:00}"
+ACTIVE_END="${ACTIVE_END:-21:00}"
+
+mkdir -p "$FRAMES_DIR"
+
+cleanup() { exit 0; }
+trap cleanup SIGTERM SIGINT
+
+is_active_hour() {
+    local current start end
+    current=$(date +%H%M)
+    start=$(echo "$ACTIVE_START" | tr -d ':')
+    end=$(echo "$ACTIVE_END" | tr -d ':')
+    (( 10#$current >= 10#$start && 10#$current < 10#$end ))
+}
+
+sleep_until_active() {
+    local now_secs start_secs sleep_secs
+    now_secs=$(date +%s)
+    start_secs=$(date -d "today $ACTIVE_START" +%s)
+    (( now_secs >= start_secs )) && start_secs=$(date -d "tomorrow $ACTIVE_START" +%s)
+    sleep_secs=$(( start_secs - now_secs ))
+    echo "$(date --iso-8601=seconds) outside active hours [${ACTIVE_START}–${ACTIVE_END}], sleeping ${sleep_secs}s"
+    sleep "$sleep_secs"
+}
+
+echo "Capturing from $STREAM_URL — motion every ${INTERVAL_MOTION}s, static every ${INTERVAL_STATIC}s, ramp ${RAMP_DURATION}s (threshold: ${MOTION_THRESHOLD}, active: ${ACTIVE_START}–${ACTIVE_END})"
+
+last_saved=0
+last_motion=0
+
+while true; do
+    if ! is_active_hour; then
+        sleep_until_active
+        continue
+    fi
+
+    tmp="$FRAMES_DIR/.tmp_frame.jpg"
+    prev="$FRAMES_DIR/.prev_frame.jpg"
+
+    if ! ffmpeg -loglevel error -i "$STREAM_URL" -frames:v 1 -q:v 2 -y "$tmp" 2>/dev/null; then
+        echo "$(date --iso-8601=seconds) WARNING: failed to capture frame" >&2
+        sleep "$INTERVAL_MOTION"
+        continue
+    fi
+
+    keep=false
+    reason="first frame"
+    now=$(date +%s)
+
+    if [[ -f "$prev" ]]; then
+        normalized=$(magick compare -metric RMSE "$tmp" "$prev" /dev/null 2>&1 \
+            | awk 'NR==1{gsub(/[()]/,"",$2); print $2}')
+
+        # Interpolate static interval: INTERVAL_MOTION at t=0 after motion,
+        # INTERVAL_STATIC at t=RAMP_DURATION, capped there afterwards.
+        effective_static=$(bc -l <<< "
+            t = $now - $last_motion
+            r = if (t > $RAMP_DURATION) 1 else t / $RAMP_DURATION
+            $INTERVAL_MOTION + ($INTERVAL_STATIC - $INTERVAL_MOTION) * r
+        " | awk '{printf "%d", $1}')
+
+        if [[ -z "$normalized" ]]; then
+            keep=true
+            reason="compare failed (keeping)"
+        elif (( $(echo "$normalized > $MOTION_THRESHOLD" | bc -l) )); then
+            keep=true
+            last_motion=$now
+            reason="motion (diff=${normalized})"
+        elif (( now - last_saved >= effective_static )); then
+            keep=true
+            reason="static interval/${effective_static}s (diff=${normalized})"
+        else
+            reason="no motion (diff=${normalized})"
+        fi
+    else
+        keep=true
+    fi
+
+    if $keep; then
+        timestamp="$(date +%Y%m%d_%H%M%S)"
+        frame="$FRAMES_DIR/frame_${timestamp}.jpg"
+        cp "$tmp" "$frame"
+        last_saved=$now
+        echo "$(date --iso-8601=seconds) ${reason} → saved $frame"
+    else
+        echo "$(date --iso-8601=seconds) ${reason} → discarded"
+    fi
+
+    mv "$tmp" "$prev"
+    sleep "$INTERVAL_MOTION"
+done

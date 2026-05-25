@@ -1,0 +1,45 @@
+#!/bin/bash
+
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/timelapse/config"
+[[ -f "$CONFIG" ]] && source "$CONFIG"
+
+FRAMES_DIR="${FRAMES_DIR:-$HOME/birdsnest-timelapse/frames}"
+OUTPUT_DIR="${OUTPUT_DIR:-$HOME/birdsnest-timelapse/output}"
+TIMELAPSE_FPS="${TIMELAPSE_FPS:-24}"
+
+date_filter=""
+if [[ "${1:-}" == "--date" && -n "${2:-}" ]]; then
+    date_filter="$2"
+fi
+
+glob="frame_${date_filter}*.jpg"
+frame_count="$(find "$FRAMES_DIR" -maxdepth 1 -name "$glob" 2>/dev/null | wc -l)"
+if [[ "$frame_count" -eq 0 ]]; then
+    echo "No frames found${date_filter:+ for $date_filter} in $FRAMES_DIR" >&2
+    exit 1
+fi
+
+echo "Compiling $frame_count frames at ${TIMELAPSE_FPS}fps${date_filter:+ ($date_filter)}..."
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+
+i=0
+while IFS= read -r f; do
+    printf -v n "%08d" "$i"
+    ln -s "$f" "$tmpdir/frame_${n}.jpg"
+    ((i++)) || true
+done < <(find "$FRAMES_DIR" -maxdepth 1 -name "$glob" | sort)
+
+mkdir -p "$OUTPUT_DIR"
+output="$OUTPUT_DIR/timelapse_${date_filter:-all}_$(date +%Y%m%d_%H%M%S).mp4"
+
+if ffmpeg -framerate "$TIMELAPSE_FPS" \
+    -i "$tmpdir/frame_%08d.jpg" \
+    -c:v libx264 -pix_fmt yuv420p -crf 23 \
+    -y "$output"; then
+    echo "Saved: $output"
+else
+    echo "ffmpeg failed" >&2
+    exit 1
+fi

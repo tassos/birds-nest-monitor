@@ -1,0 +1,14 @@
+[Unit]
+Description=Timelapse frame capture from birdsnest webcam
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=@BINDIR@/timelapse-capture
+ExecStopPost=@BINDIR@/timelapse-compile
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

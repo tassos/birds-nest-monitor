@@ -1,0 +1,34 @@
+# Timelapse configuration
+# Copy to ~/.config/timelapse/config and adjust as needed.
+
+STREAM_URL="YOUR_STREAM_URL"
+
+# Directory where captured frames are stored
+FRAMES_DIR="$HOME/Video/birdsnest-timelapse/frames"
+
+# Directory where compiled timelapse videos are saved
+OUTPUT_DIR="$HOME/Video/birdsnest-timelapse/output"
+
+# Seconds between capture attempts (default: 5)
+# This is also the motion detection resolution — how quickly motion can be caught.
+INTERVAL_MOTION=5
+
+# Seconds between saved frames when no motion is detected (default: 60)
+# A frame is always saved after this much time, even if the scene is static.
+INTERVAL_STATIC=60
+
+# Seconds after motion stops before the static interval reaches INTERVAL_STATIC (default: 300)
+# The save interval ramps linearly from INTERVAL_MOTION to INTERVAL_STATIC over this duration.
+RAMP_DURATION=300
+
+# Motion detection sensitivity: normalized RMSE difference between frames [0,1]
+# Lower = more sensitive (keeps more frames); higher = less sensitive (keeps fewer)
+# Typical range: 0.01 (very sensitive) to 0.05 (coarse)
+MOTION_THRESHOLD=0.02
+
+# Frames per second in the compiled timelapse video (default: 24)
+TIMELAPSE_FPS=24
+
+# Active capture window — no frames are captured outside these times
+ACTIVE_START="06:00"
+ACTIVE_END="21:00"

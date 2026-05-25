@@ -1,0 +1,6 @@
+[Unit]
+Description=Compile yesterday's birdsnest timelapse
+
+[Service]
+Type=oneshot
+ExecStart=@BINDIR@/timelapse-compile-daily
