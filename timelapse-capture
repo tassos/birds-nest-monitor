@@ -67,7 +67,7 @@ while true; do
         # INTERVAL_STATIC at t=RAMP_DURATION, capped there afterwards.
         effective_static=$(bc -l <<< "
             t = $now - $last_motion
-            r = if (t > $RAMP_DURATION) 1 else t / $RAMP_DURATION
+            if (t > $RAMP_DURATION) r = 1 else r = t / $RAMP_DURATION
             $INTERVAL_MOTION + ($INTERVAL_STATIC - $INTERVAL_MOTION) * r
         " | awk '{printf "%d", $1}')
 
@@ -89,7 +89,7 @@ while true; do
     fi
 
     if $keep; then
-        timestamp="$(date +%Y%m%d_%H%M%S)"
+        timestamp="$(date +%Y%m%d_%H%M%S_%3N)"
         frame="$FRAMES_DIR/frame_${timestamp}.jpg"
         cp "$tmp" "$frame"
         last_saved=$now
