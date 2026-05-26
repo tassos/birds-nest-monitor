@@ -60,8 +60,10 @@ while true; do
     now=$(date +%s)
 
     if [[ -f "$prev" ]]; then
+        # Extract the normalized RMSE value from inside parentheses, e.g. "1234.5 (0.0188)"
+        # Using grep -oP so the pattern match is immune to varying error message formats.
         normalized=$(magick compare -metric RMSE "$tmp" "$prev" /dev/null 2>&1 \
-            | awk 'NR==1{gsub(/[()]/,"",$2); print $2}')
+            | grep -oP '\(\K[\d.e+-]+(?=\))' | tail -1)
 
         # Interpolate static interval: INTERVAL_MOTION at t=0 after motion,
         # INTERVAL_STATIC at t=RAMP_DURATION, capped there afterwards.
@@ -71,7 +73,7 @@ while true; do
             $INTERVAL_MOTION + ($INTERVAL_STATIC - $INTERVAL_MOTION) * r
         " | awk '{printf "%d", $1}')
 
-        if [[ -z "$normalized" ]]; then
+        if [[ -z "$normalized" ]] || ! [[ "$normalized" =~ ^[0-9] ]]; then
             keep=true
             reason="compare failed (keeping)"
         elif (( $(echo "$normalized > $MOTION_THRESHOLD" | bc -l) )); then

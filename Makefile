@@ -8,9 +8,23 @@ UNITS    = timelapse-capture.service \
            timelapse-compile-daily.service \
            timelapse-compile-daily.timer
 
-.PHONY: install uninstall enable disable
+DEPS = ffmpeg magick bc
 
-install:
+.PHONY: install uninstall enable disable check-deps
+
+check-deps:
+	@missing=""; \
+	for cmd in $(DEPS); do \
+		command -v $$cmd >/dev/null 2>&1 || missing="$$missing $$cmd"; \
+	done; \
+	if [ -n "$$missing" ]; then \
+		echo "Error: missing dependencies:$$missing"; \
+		echo "Install them and re-run make install."; \
+		exit 1; \
+	fi
+	@echo "All dependencies found."
+
+install: check-deps
 	mkdir -p $(BINDIR) $(UNITDIR) $(CONFDIR)
 	for s in $(SCRIPTS); do \
 		sed 's|@BINDIR@|$(BINDIR)|g' $$s > $(BINDIR)/$$s; \
