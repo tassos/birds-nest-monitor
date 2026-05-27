@@ -96,10 +96,11 @@ while true; do
         cp "$tmp" "$frame"
         last_saved=$now
         echo "$(date --iso-8601=seconds) ${reason} → saved $frame"
+        mv "$tmp" "$prev"
     else
         echo "$(date --iso-8601=seconds) ${reason} → discarded"
+        rm -f "$tmp"
     fi
 
-    mv "$tmp" "$prev"
     sleep "$INTERVAL_MOTION"
 done
