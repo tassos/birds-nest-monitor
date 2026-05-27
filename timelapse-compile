@@ -32,7 +32,11 @@ while IFS= read -r f; do
 done < <(find "$FRAMES_DIR" -maxdepth 1 -name "$glob" | sort)
 
 mkdir -p "$OUTPUT_DIR"
-output="$OUTPUT_DIR/timelapse_${date_filter:-all}_$(date +%Y%m%d_%H%M%S).mp4"
+if [[ -n "$date_filter" ]]; then
+    output="$OUTPUT_DIR/timelapse_${date_filter}.mp4"
+else
+    output="$OUTPUT_DIR/timelapse_all_$(date +%Y%m%d_%H%M%S).mp4"
+fi
 
 if ffmpeg -framerate "$TIMELAPSE_FPS" \
     -i "$tmpdir/frame_%08d.jpg" \

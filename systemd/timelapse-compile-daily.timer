@@ -1,8 +1,8 @@
 [Unit]
-Description=Compile yesterday's birdsnest timelapse every morning
+Description=Compile today's birdsnest timelapse every evening
 
 [Timer]
-OnCalendar=*-*-* 00:15:00
+OnCalendar=*-*-* 22:15:00
 Persistent=true
 
 [Install]
